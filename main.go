@@ -38,26 +38,33 @@ func main() {
         return
     }
 
-    // Adiciona um handler para o evento de mensagem
-    dg.AddHandler(messageCreate)
-
-    // Conecta o bot ao Discord
-    err = dg.Open()
-    if err != nil {
-        fmt.Println("Error opening connection: ", err)
-        return
-    }
-
-    fmt.Println("Bot is now running. Press CTRL+C to exit.")
-    select {}
+    // Vamos criar uma func para quando usuário enviar !pr ele abrir um embed com botões em baixo de confirmar e negar.
+           // Criação da sessão do Discord
+    dg.AddHandler(messageHandler) // Certifique-se de que isso está aqui
 }
 
-// Função para lidar com o evento de mensagem
-func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-
-    // Verifica se a mensagem começa com o prefixo
-    if m.Content == prefix + "ping" {
-        // Envia a mensagem de resposta
-        _, _ = s.ChannelMessageSend(m.ChannelID, "Pong!")
+// Função para lidar com mensagens
+func messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
+    fmt.Println("Mensagem recebida:", m.Content) // Log da mensagem recebida
+    if m.Author.ID == s.State.User.ID {
+        return
+    }
+    if m.Content == "!pr" {
+        fmt.Println("Comando !pr recebido") // Log do comando
+        // Criação do embed com botões
+        embed := &discordgo.MessageEmbed{
+            Title:       "Confirmação",
+            Description: "Você deseja continuar?",
+            Color:       0x00ff00,
+        }
+        // Envio do embed com botões
+        msg, err := s.ChannelMessageSendEmbed(m.ChannelID, embed)
+        if err != nil {
+            fmt.Println("Error sending embed: ", err)
+            return
+        }
+        // Adicionando reações ao embed
+        _ = s.MessageReactionAdd(m.ChannelID, msg.ID, "✅")
+        _ = s.MessageReactionAdd(m.ChannelID, msg.ID, "❌")
     }
 }
