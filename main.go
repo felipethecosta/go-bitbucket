@@ -1,70 +1,71 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
+
+	"go-bitbucket/services/discord/commands"
+	"go-bitbucket/services/discord/handlers"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
 )
 
-// Variables used for command line parameters
-var prefix = "!"
+   var Token string
+   var ChannelID string
 
-// Função principal para iniciar o bot
 func main() {
-    // Criação da sessão do Discord
-    err := godotenv.Load()
-    if err != nil {
-        log.Fatal("Error loading .env file")
-    }
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Erro ao carregar o arquivo .env")
+	}
 
-    // Variables de ambiente para o token do bot
-    token := os.Getenv("DISCORD_TOKEN")
-    channelID := os.Getenv("CHANNEL_ID")
+	Token = os.Getenv("DISCORD")
+	if Token == "" {
+		log.Fatal("Token não encontrado. Verifique se a variável de ambiente DISCORD está definida.")
+	}
 
-    // Criação da sessão do Discord com o token do bot
-    dg, err := discordgo.New("Bot " + token)
-    if err != nil {
-        fmt.Println("Error creating Discord session: ", err)
-        return
-    }
+	ChannelID = os.Getenv("CHANNEL_ID")
+	if ChannelID == "" {
+		log.Fatal("Channel ID não encontrado. Verifique se a variável de ambiente CHANNEL_ID está definida.")
+	}
 
-    // Envia uma mensagem para o canal espeficicado ao iniciar o bot
-    _, _ = dg.ChannelMessageSend(channelID, "Bot está online, observe nosso prefix = ! e saiba mais.")
-    if err != nil {
-        fmt.Println("Error sending message: ", err)
-        return
-    }
+	dg, err := discordgo.New("Bot " + Token)
+	if err != nil {
+		log.Fatalf("Erro ao criar a sessão: %v", err)
+	}
 
-    // Vamos criar uma func para quando usuário enviar !pr ele abrir um embed com botões em baixo de confirmar e negar.
-           // Criação da sessão do Discord
-    dg.AddHandler(messageHandler) // Certifique-se de que isso está aqui
+	// Adiciona um handler para mensagens
+	dg.AddHandler(commands.PingCommand)
+	dg.AddHandler(messageCreate)
+
+	err = dg.Open()
+	if err != nil {
+		log.Fatalf("Erro ao abrir a conexão: %v", err)
+	}
+
+	log.Println("Bot está online!")
+	select {}
 }
 
-// Função para lidar com mensagens
-func messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
-    fmt.Println("Mensagem recebida:", m.Content) // Log da mensagem recebida
-    if m.Author.ID == s.State.User.ID {
-        return
-    }
-    if m.Content == "!pr" {
-        fmt.Println("Comando !pr recebido") // Log do comando
-        // Criação do embed com botões
-        embed := &discordgo.MessageEmbed{
-            Title:       "Confirmação",
-            Description: "Você deseja continuar?",
-            Color:       0x00ff00,
-        }
-        // Envio do embed com botões
-        msg, err := s.ChannelMessageSendEmbed(m.ChannelID, embed)
-        if err != nil {
-            fmt.Println("Error sending embed: ", err)
-            return
-        }
-        // Adicionando reações ao embed
-        _ = s.MessageReactionAdd(m.ChannelID, msg.ID, "✅")
-        _ = s.MessageReactionAdd(m.ChannelID, msg.ID, "❌")
-    }
+// messageCreate é chamado sempre que uma nova mensagem é criada
+func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+	log.Printf("Mensagem recebida: %s de %s no canal %s", m.Content, m.Author.Username, m.ChannelID)
+
+	if m.Content == "!embed" {
+		handlers.SendEmbedMessage(s, ChannelID)
+		log.Println("Enviando mensagem embed.")
+	}
+	if m.Content == "!react" {
+		handlers.AddReaction(s, m.ChannelID, m.ID, "👍")
+		log.Println("Adicionando reação.")
+	}
+	if m.Content == "!ping" {
+		commands.PingCommand(s, m)
+		log.Println("Respondendo ao comando ping.")
+	}
+	if m.Content == "!help" {
+		commands.HelpCommand(s, m)
+		log.Println("Respondendo ao comando help.")
+	}
 }
